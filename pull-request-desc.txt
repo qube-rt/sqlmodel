@@ -1,0 +1,22 @@
+  This PR builds on top of #1226 (by @jensrischbieth) and completes support for SQLAlchemy single-table and joined-table polymorphic inheritance in SQLModel.
+
+  #1226 laid the groundwork for class creation but left two runtime gaps: inherited relationships passed as constructor kwargs were silently dropped, and assigning them via __setattr__ raised AttributeError on polymorphic subclasses.
+
+  As this PR is quite large, commits are organized to make review easier, each one can be reviewed independently:
+
+  Add metaclass support for SQLAlchemy polymorphic models (joined-table and single-table inheritance)
+  Merges base-class fields into subclass namespace, auto-sets __tablename__, skips already-instrumented attributes, and sets the polymorphic discriminator to polymorphic_identity on __init__.
+
+  Fix inherited relationship resolution in polymorphic subclass constructors and assignment
+  sqlmodel_table_construct and sqlmodel_validate iterated only __sqlmodel_relationships__, missing relationships inherited from polymorphic base classes. Replace with _relationship_keys() which falls back to the SQLAlchemy mapper when available. SQLModel.__setattr__
+  forwarded inherited relationship assignments to Pydantic, raising AttributeError. Add _is_sqlmodel_relationship() to detect mapper-owned relationships and short-circuit to SQLAlchemy.
+
+  Add test suite for polymorphic inheritance
+  Large suite, most tests are ported from SQLAlchemy's own inheritance test suite (test/orm/inheritance/) adapted to SQLModel's API. Also covers issues raised in #1226 comments:
+  - https://github.com/fastapi/sqlmodel/pull/1226#issuecomment-2568867964 — custom TypeDecorator + polymorphic model pickle error → test_polymorphic_typedecorator.py
+  - https://github.com/fastapi/sqlmodel/pull/1226#issuecomment-3049507957 — self-referential relationship assignment on polymorphic subclasses → test_poly_linked_list.py
+  - https://github.com/fastapi/sqlmodel/pull/1226#issuecomment-3665530152 — relationships with polymorphic subclasses → test_basic.py, test_polymorphic_constructor.py, test_manytomany.py
+
+  Test plan:
+  - All existing tests pass
+  - New polymorphic test suite passes (tests/test_polymorphic/)
